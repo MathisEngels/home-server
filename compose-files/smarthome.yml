@@ -1,0 +1,79 @@
+services:
+  homeassistant:
+    image: "ghcr.io/home-assistant/home-assistant:stable"
+    container_name: homeassistant
+    ports:
+      - 8123:8123
+    volumes:
+      - ${CONTAINERS_DIR}/HA:/config
+      - /etc/localtime:/etc/localtime:ro
+      - /run/dbus:/run/dbus:ro
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.homeassistant.rule=Host(`homeassistant.${DOMAIN}`)"
+      - "traefik.http.services.homeassistant.loadbalancer.server.port=8123"
+    restart: unless-stopped
+    cap_add:
+      - NET_ADMIN
+      - NET_RAW
+    network_mode: host
+
+  mosquitto:
+    image: eclipse-mosquitto
+    container_name: mosquitto_mqtt
+    ports:
+      - 1883:1883
+      - 9001:9001
+    volumes:
+      - ${CONTAINERS_DIR}/mosquitto/config:/mosquitto/config
+      - ${CONTAINERS_DIR}/mosquitto/data:/mosquitto/data
+      - ${CONTAINERS_DIR}/mosquitto/log:/mosquitto/log
+    restart: unless-stopped
+
+  zigbee2mqtt:
+    image: koenkk/zigbee2mqtt
+    container_name: zigbee2mqtt
+    depends_on:
+      - mosquitto
+    environment:
+      - TZ=${TZ}
+    ports:
+      - 8081:8080
+    networks:
+      - default
+      - traefik-proxy
+    volumes:
+      - ${CONTAINERS_DIR}/zigbee2mqtt:/app/data
+      - /run/udev:/run/udev:ro
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.zigbee2mqtt.rule=Host(`zigbee2mqtt.local.${DOMAIN}`)"
+    restart: unless-stopped
+    devices:
+      - /dev/ttyUSB0:/dev/ttyUSB0
+
+  esphome:
+    image: esphome/esphome
+    container_name: esphome
+    environment:
+      - ESPHOME_DASHBOARD_USE_PING=true
+    ports:
+      - 6052:6052
+    networks:
+      - default
+      - traefik-proxy
+    volumes:
+      - ${CONTAINERS_DIR}/esphome:/config
+      - /etc/localtime:/etc/localtime:ro
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.esphome.rule=Host(`esphome.local.${DOMAIN}`)"
+    restart: unless-stopped
+    privileged: true
+
+networks:
+  default:
+    driver: bridge
+  traefik-proxy:
+    name: ${TRAEFIK_NETWORK}
+    external: true

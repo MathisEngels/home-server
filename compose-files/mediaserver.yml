@@ -1,0 +1,221 @@
+version: "3"
+services:
+  prowlarr:
+    image: lscr.io/linuxserver/prowlarr:latest
+    container_name: prowlarr
+    environment:
+      - PUID=${PUID}
+      - PGID=${PGID}
+      - TZ=${TZ}
+    ports:
+      - 9696:9696
+    networks:
+      - default
+      - traefik-proxy
+    volumes:
+      - ${CONTAINERS_DIR}/prowlarr:/config
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.prowlarr.rule=Host(`prowlarr.local.${DOMAIN}`)"
+    restart: unless-stopped
+
+  radarr:
+    image: linuxserver/radarr
+    container_name: radarr
+    environment:
+      - PUID=${PUID}
+      - PGID=${PGID}
+      - TZ=${TZ}
+    ports:
+      - 7878:7878
+    networks:
+      - default
+      - traefik-proxy
+    volumes:
+      - ${CONTAINERS_DIR}/radarr:/config
+      - mediaserver:/data
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.radarr.rule=Host(`radarr.local.${DOMAIN}`)"
+    restart: unless-stopped
+
+  sonarr:
+    image: ghcr.io/hotio/sonarr:nightly
+    container_name: sonarr
+    environment:
+      - PUID=${PUID}
+      - PGID=${PGID}
+      - TZ=${TZ}
+    ports:
+      - 8989:8989
+    networks:
+      - default
+      - traefik-proxy
+    volumes:
+      - ${CONTAINERS_DIR}/sonarr:/config
+      - mediaserver:/data
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.sonarr.rule=Host(`sonarr.local.${DOMAIN}`)"
+    restart: unless-stopped
+
+  bazarr:
+    image: lscr.io/linuxserver/bazarr:latest
+    container_name: bazarr
+    environment:
+      - PUID=${PUID}
+      - PGID=${PGID}
+      - TZ=${TZ}
+    ports:
+      - 6767:6767
+    networks:
+      - default
+      - traefik-proxy
+    volumes:
+      - ${CONTAINERS_DIR}/bazarr/config:/config
+      - mediaserver:/data
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.bazarr.rule=Host(`bazarr.local.${DOMAIN}`)"
+    restart: unless-stopped
+
+  transmission:
+    image: lscr.io/linuxserver/transmission:latest
+    container_name: transmission
+    environment:
+      - PUID=${PUID}
+      - PGID=${PGID}
+      - TZ=${TZ}
+      - TRANSMISSION_WEB_HOME=/config/flood-for-transmission
+    ports:
+      - 9091:9091
+      - 51413:51413
+      - 51413:51413/udp
+    networks:
+      - default
+      - traefik-proxy
+    volumes:
+      - ${CONTAINERS_DIR}/transmission:/config
+      - torrents:/data/torrents
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.transmission.rule=Host(`transmission.local.${DOMAIN}`)"
+    restart: unless-stopped
+
+  sabnzbd:
+    image: lscr.io/linuxserver/sabnzbd:latest
+    container_name: sabnzbd
+    environment:
+      - PUID=${PUID}
+      - PGID=${PGID}
+      - TZ=${TZ}
+    ports:
+      - 8090:8090
+    networks:
+      - default
+      - traefik-proxy
+    volumes:
+      - ${CONTAINERS_DIR}/sabnzbd:/config
+      - usenet:/data/usenet
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.sabnzbd.rule=Host(`sabnzbd.local.${DOMAIN}`)"
+      - "traefik.http.services.sabnzbd.loadbalancer.server.port=8090"
+    restart: unless-stopped
+
+  jellyfin:
+    image: lscr.io/linuxserver/jellyfin:latest
+    container_name: jellyfin
+    environment:
+      - PUID=${PUID}
+      - PGID=${PGID}
+      - TZ=${TZ}
+    ports:
+      - 8096:8096
+      - 7359:7359/udp #Auto discovery
+    networks:
+      - default
+      - traefik-proxy
+    volumes:
+      - ${CONTAINERS_DIR}/jellyfin:/config
+      - mediaserver:/data
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.jellyfin.rule=Host(`jellyfin.${DOMAIN}`)"
+      - "traefik.http.services.jellyfin.loadbalancer.server.port=8096"
+    restart: unless-stopped
+
+  jellyseerr:
+    image: fallenbagel/jellyseerr:latest
+    container_name: jellyseerr
+    environment:
+      - LOG_LEVEL=debug
+      - TZ=${TZ}
+    ports:
+      - 5055:5055
+    networks:
+      - default
+      - traefik-proxy
+    volumes:
+      - ${CONTAINERS_DIR}/jellyseerr:/app/config
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.jellyseerr.rule=Host(`jellyseerr.${DOMAIN}`)"
+    restart: unless-stopped
+
+  tdarr:
+    container_name: tdarr
+    image: ghcr.io/haveagitgat/tdarr:latest
+    environment:
+      - PUID=${PUID}
+      - PGID=${PGID}
+      - TZ=${TZ}
+      - UMASK_SET=002
+      - serverIP=0.0.0.0
+      - serverPort=8266
+      - webUIPort=8265
+      - internalNode=true
+      - inContainer=true
+      - ffmpegVersion=6
+      - nodeName=${TDARR_NODE_NAME}
+    ports:
+      - 8265:8265 # webUI port
+      - 8266:8266 # server port
+    volumes:
+      - ${CONTAINERS_DIR}/tdarr/server:/app/server
+      - ${CONTAINERS_DIR}/tdarr/configs:/app/configs
+      - ${CONTAINERS_DIR}/tdarr/logs:/app/logs
+      - mediaserver:/media
+      - temp:/temp
+    restart: unless-stopped
+    privileged: true
+
+volumes:
+  torrents:
+    driver_opts:
+      type: "nfs"
+      o: "addr=${NAS_IP},rw,noatime,rsize=8192,wsize=8192,tcp,timeo=14,nfsvers=4"
+      device: ":${NAS_MEDIASERVER_DIR}/torrents"
+  usenet:
+    driver_opts:
+      type: "nfs"
+      o: "addr=${NAS_IP},rw,noatime,rsize=8192,wsize=8192,tcp,timeo=14,nfsvers=4"
+      device: ":${NAS_MEDIASERVER_DIR}/usenet"
+  mediaserver:
+    driver_opts:
+      type: "nfs"
+      o: "addr=${NAS_IP},rw,noatime,rsize=8192,wsize=8192,tcp,timeo=14,nfsvers=4"
+      device: ":${NAS_MEDIASERVER_DIR}"
+  temp:
+    driver_opts:
+      type: "nfs"
+      o: "addr=${NAS_IP},rw,noatime,rsize=8192,wsize=8192,tcp,timeo=14,nfsvers=4"
+      device: ":${NAS_MEDIASERVER_DIR}/temp"
+
+networks:
+  default:
+    name: mediaserver
+    driver: bridge
+  traefik-proxy:
+    name: ${TRAEFIK_NETWORK}
+    external: true

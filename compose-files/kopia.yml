@@ -1,0 +1,32 @@
+services:
+  kopia:
+    image: kopia/kopia:latest
+    container_name: kopia
+    command:
+      - server
+      - start
+      - --disable-csrf-token-checks
+      - --insecure
+      - --address=0.0.0.0:51515
+      - --server-username=${KOPIA_SERVER_USERNAME}
+      - --server-password=${KOPIA_SERVER_PASSWORD}
+    environment:
+      - TZ: ${TZ}
+      - USER: ${KOPIA_USERNAME}
+      - KOPIA_PASSWORD: ${KOPIA_PASSWORD}
+    ports:
+      - 51515:51515
+    volumes:
+      - ${CONTAINERS_DIR}/kopia/config:/app/config
+      - ${CONTAINERS_DIR}/kopia/cache:/app/cache
+      - ${CONTAINERS_DIR}/kopia/logs:/app/logs
+      - /:/data:ro
+      - backup:/backup
+    restart: "unless-stopped"
+
+volumes:
+  backup:
+    driver_opts:
+      type: "nfs"
+      o: "addr=${NAS_IP},rw,noatime,rsize=8192,wsize=8192,tcp,timeo=14,nfsvers=4"
+      device: ":${NAS_BACKUPS_DIR}"

@@ -1,0 +1,45 @@
+services:
+  traefik:
+    image: traefik:v3.1
+    container_name: traefik
+    command:
+      - "--api.insecure=true"
+      - "--providers.file.filename=/etc/traefik/config.yml"
+      - "--providers.file.watch=true"
+      - "--providers.docker"
+      - "--providers.docker.exposedByDefault=false"
+      - "--providers.docker.network=traefik-proxy"
+      - "--certificatesResolvers.letsencrypt.acme.dnschallenge=true"
+      - "--certificatesResolvers.letsencrypt.acme.dnschallenge.provider=cloudflare"
+      - "--certificatesResolvers.letsencrypt.acme.email=${LETSENCRYPT_EMAIL}"
+      - "--certificatesResolvers.letsencrypt.acme.storage=/letsencrypt/acme.json"
+      - "--entryPoints.web.address=:80"
+      - "--entryPoints.websecure.address=:443"
+      - "--entryPoints.websecure.asDefault=true"
+      - "--entrypoints.websecure.http.tls.domains[0].main=*.${DOMAIN}"
+      - "--entrypoints.websecure.http.tls.domains[0].sans=*.local.${DOMAIN}"
+      - "--entrypoints.websecure.http.tls.certresolver=letsencrypt"
+      - "--entryPoints.web.http.redirections.entryPoint.to=websecure"
+      - "--entryPoints.web.http.redirections.entryPoint.scheme=https"
+    environment:
+      - "CLOUDFLARE_DNS_API_TOKEN=${CLOUDFLARE_DNS_API_TOKEN}"
+    ports:
+      - 80:80
+      - 443:443
+      - 8060:8080
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ${CONTAINERS_DIR}/traefik/letsencrypt:/letsencrypt
+      - ${CONTAINERS_DIR}/traefik/config:/etc/traefik
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.traefik-dashboard.rule=Host(`traefik.local.${DOMAIN}`)"
+      - "traefik.http.routers.traefik-dashboard.service=api@internal"
+    restart: unless-stopped
+    extra_hosts:
+      - host.docker.internal:172.17.0.1
+
+networks:
+  default:
+    name: ${TRAEFIK_NETWORK}
+    external: true

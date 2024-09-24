@@ -1,0 +1,33 @@
+services:
+  wg-easy:
+    image: ghcr.io/wg-easy/wg-easy
+    container_name: wg-easy
+    environment:
+      - WG_HOST=vpn.${DOMAIN}
+      - PASSWORD_HASH=$$2a$$12$$sOMc0I1sxhIxwt4yksbCvuugvPuRuqJMvlnyT925cuLQ7RywiLxpm
+    ports:
+      - 51820:51820/udp
+      - 51821:51821/tcp
+    networks:
+      - default
+      - traefik-proxy
+    volumes:
+      - ${CONTAINERS_DIR}/wireguard:/etc/wireguard
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.wg-easy.rule=Host(`wg.local.${DOMAIN}`)"
+      - "traefik.http.services.wg-easy.loadbalancer.server.port=51821"
+    restart: unless-stopped
+    cap_add:
+      - NET_ADMIN
+      - SYS_MODULE
+    sysctls:
+      - net.ipv4.ip_forward=1
+      - net.ipv4.conf.all.src_valid_mark=1
+
+networks:
+  default:
+    name: wg-easy
+  traefik-proxy:
+    name: ${TRAEFIK_NETWORK}
+    external: true

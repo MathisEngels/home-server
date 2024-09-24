@@ -1,0 +1,22 @@
+services:
+  mainsail:
+    image: ghcr.io/mainsail-crew/mainsail:latest
+    container_name: mainsail
+    ports:
+      - "81:80"
+    networks:
+      - default
+      - traefik-proxy
+    volumes:
+      - ${CONTAINERS_DIR}/mainsail/config.json:/usr/share/nginx/html/config.json
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.mainsail.rule=Host(`mainsail.local.${DOMAIN}`)"
+    restart: unless-stopped
+
+networks:
+  default:
+    name: mainsail
+  traefik-proxy:
+    name: ${TRAEFIK_NETWORK}
+    external: true
