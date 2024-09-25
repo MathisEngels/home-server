@@ -1,0 +1,22 @@
+services:
+  godns:
+    image: timothyye/godns:latest
+    container_name: godns
+    ports:
+      - 9000:9000
+    networks:
+      - default
+      - traefik-proxy
+    volumes:
+      - ${CONTAINERS_DIR}/godns/config.json:/config.json
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.godns.rule=Host(`godns.local.${DOMAIN}`)"
+    restart: always
+
+networks:
+  default:
+    name: godns
+  traefik-proxy:
+    name: ${TRAEFIK_NETWORK}
+    external: true
